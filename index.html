@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>創科健康神射手：人體工學投籃大挑戰</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Roboto, sans-serif;
+    }
+    body {
+      background: #0f172a;
+      background: radial-gradient(circle at center, #1e293b 0%, #0b0f19 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      overflow-x: hidden;
+    }
+    #game-container {
+      width: 100%;
+      max-width: 800px;
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      border-radius: 20px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* 頂部 HUD 狀態列 */
+    .hud-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b1329;
+      border-bottom: 2px solid #1e3a8a;
+      padding: 10px 18px;
+    }
+    .hud-item {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-balls {
+      background: #ea580c;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    /* 遊戲畫布區 (Canvas) - 校園操場 */
+    .court-wrapper {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      background: #7dd3fc;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 投球反饋通知 */
+    .shot-alert {
+      position: absolute;
+      top: 28%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      font-size: 30px;
+      font-weight: 900;
+      text-shadow: 0 3px 8px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 20;
+    }
+    .shot-alert.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.15);
+    }
+
+    /* 下方操作控制面板 */
+    .control-panel {
+      background: #0f172a;
+      border-top: 2px solid #334155;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    /* 角度選擇滑桿 */
+    .angle-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .angle-control label {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .angle-control input[type="range"] {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: #334155;
+      outline: none;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+
+    /* 蓄力條區域 */
+    .power-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1.2;
+    }
+    .power-bar-bg {
+      flex: 1;
+      height: 20px;
+      background: #1e293b;
+      border: 2px solid #475569;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    /* 最佳發射區標記（約 70%~85%） */
+    .power-sweet-spot {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 70%;
+      width: 15%;
+      background: rgba(34, 197, 94, 0.35);
+      border-left: 2px dashed #22c55e;
+      border-right: 2px dashed #22c55e;
+    }
+    .power-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6 0%, #eab308 65%, #22c55e 75%, #ef4444 100%);
+      transition: width 0.05s linear;
+    }
+
+    /* 控制按鈕 */
+    .btn-shoot {
+      background: #f97316;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-shoot:hover:not(:disabled) { background: #ea580c; transform: scale(1.03); }
+    .btn-shoot:active:not(:disabled) { transform: scale(0.97); }
+    .btn-shoot:disabled { background: #475569; cursor: not-allowed; box-shadow: none; opacity: 0.7; }
+
+    .btn-quiz {
+      background: #3b82f6;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      transition: all 0.2s;
+    }
+    .btn-quiz:hover { background: #2563eb; }
+
+    /* 彈窗（登入、答題、結算） */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+    .modal-overlay.hidden { display: none !important; }
+
+    .modal-card {
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      border-radius: 18px;
+      width: 100%;
+      max-width: 520px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+      width: 100%;
+    }
+    .input-box {
+      flex: 1;
+      text-align: left;
+    }
+    .input-box label {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .input-box input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .opt-btn {
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      margin: 6px 0;
+      background: #0f172a;
+      border: 2px solid #334155;
+      color: #f8fafc;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1.4;
+    }
+    .opt-btn:hover { border-color: #38bdf8; background: #1e293b; }
+    .opt-btn.correct { border-color: #10b981; background: rgba(16, 185, 129, 0.2); }
+    .opt-btn.wrong { border-color: #ef4444; background: rgba(239, 68, 68, 0.2); }
+
+    .explanation-box {
+      background: #0f172a;
+      border-left: 4px solid #10b981;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #94a3b8;
+      text-align: left;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    .btn-action {
+      background: #10b981;
+      color: #022c22;
+      font-weight: 800;
+      font-size: 15px;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 26px;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: all 0.2s;
+    }
+    .btn-action:hover { background: #34d399; }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- 頂部 HUD -->
+    <div class="hud-bar">
+      <div class="hud-item" style="color:#38bdf8;">
+        👤 <span id="student-badge">3A(01)</span>
+      </div>
+      <div class="hud-item" style="color:#facc15;">
+        🏆 積分: <b id="score-val">0</b>
+      </div>
+      <div class="hud-item">
+        🏀 投籃庫存: <span class="badge-balls" id="ball-count">0</span>
+      </div>
+      <div class="hud-item" id="heart-box">
+        ❤️❤️❤️
+      </div>
+    </div>
+
+    <!-- 投籃球場 Canvas (校園操場背景) -->
+    <div class="court-wrapper">
+      <canvas id="courtCanvas" width="800" height="380"></canvas>
+      <div class="shot-alert" id="shotAlert">SWISH! +200</div>
+    </div>
+
+    <!-- 底部操作控制台 -->
+    <div class="control-panel">
+      <!-- 角度與蓄力條 -->
+      <div class="control-row">
+        <!-- 角度調整 -->
+        <div class="angle-control">
+          <label>📐 投籃角度: <b id="angle-val" style="color:#38bdf8;">55°</b></label>
+          <input type="range" id="angleRange" min="30" max="75" value="55">
+        </div>
+
+        <!-- 蓄力力度條 -->
+        <div class="power-container">
+          <span style="font-size:12px; color:#94a3b8; font-weight:bold;">⚡ 力度:</span>
+          <div class="power-bar-bg">
+            <div class="power-sweet-spot"></div>
+            <div class="power-fill" id="powerFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按鈕列 -->
+      <div class="control-row">
+        <button class="btn-quiz" id="quizBtn" onclick="openQuizModal()">
+          💡 答題賺取籃球（剩餘題目）
+        </button>
+
+        <button class="btn-shoot" id="shootBtn" disabled>
+          🏀 按住蓄力 / 放開投籃
+        </button>
+      </div>
+    </div>
+
+    <!-- 1. 學生登入視窗 -->
+    <div class="modal-overlay" id="loginModal">
+      <div class="modal-card">
+        <div style="font-size:42px; margin-bottom:6px;">🏀🏫</div>
+        <h2 style="color:#38bdf8; margin-bottom:6px;">創科健康神射手</h2>
+        <p style="font-size:13px; color:#94a3b8; line-height:1.5;">
+          解答「科技與健康／人體工學」題目換取投籃機會！在校園操場投籃，空心入網衝擊 MVP！
+        </p>
+
+        <div class="form-group">
+          <div class="input-box">
+            <label>班別</label>
+            <input type="text" id="in-class" value="3A" maxlength="6">
+          </div>
+          <div class="input-box">
+            <label>學號</label>
+            <input type="number" id="in-no" value="01">
+          </div>
+        </div>
+
+        <button class="btn-action" onclick="startGame()">進入操場挑戰</button>
+      </div>
+    </div>
+
+    <!-- 2. 健康創科題目彈窗 -->
+    <div class="modal-overlay hidden" id="quizModal">
+      <div class="modal-card" style="max-width:540px;">
+        <span style="font-size:11px; color:#38bdf8; font-weight:bold; letter-spacing:1px;" id="q-cat">【科技與人體工學】</span>
+        <h3 id="q-text" style="margin:10px 0 14px 0; font-size:16px; color:#f8fafc; line-height:1.5;">題目載入中...</h3>
+
+        <div style="width:100%;" id="q-options"></div>
+
+        <div id="q-exp" class="explanation-box hidden"></div>
+        <button class="btn-action hidden" id="q-close-btn" onclick="closeQuizModal()">確定，前往投籃！</button>
+      </div>
+    </div>
+
+    <!-- 3. 遊戲結算排行榜視窗 -->
+    <div class="modal-overlay hidden" id="endModal">
+      <div class="modal-card">
+        <div style="font-size:44px; margin-bottom:8px;">🏆</div>
+        <h2 style="color:#facc15; margin-bottom:6px;">挑戰完成！</h2>
+        <p id="end-desc" style="font-size:14px; color:#94a3b8; line-height:1.6; margin-bottom:14px;"></p>
+
+        <div style="display:flex; gap:10px;">
+          <button class="btn-action" onclick="exportCSV()">匯出成績 CSV</button>
+          <button class="btn-action" style="background:#475569; color:#fff;" onclick="restartGame()">再玩一次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 12 題「科技與健康／人體工學」題庫 ---
+    const QUIZ_DB = [
+      {
+        cat: "電腦螢幕人體工學",
+        q: "使用桌上型電腦時，螢幕頂部的理想高度應該在哪個位置最符合人體工學？",
+        opts: ["與眼睛平齊或略低 5-10 度", "必須高於頭頂以抬頭伸展頸部", "放在胸部高度保持低頭"],
+        correctText: "與眼睛平齊或略低 5-10 度",
+        exp: "螢幕頂部與視線平齊（俯視約 10-20 度）可減少頸椎伸肌負擔，並避免因眼睛睜太大而導致淚液蒸發過快（乾眼症）。"
+      },
+      {
+        cat: "低頭族與短訊頸",
+        q: "長時間低頭 60 度看手機，頸椎承受的壓力相當於背負約多少公斤的重量？",
+        opts: ["約 5 公斤", "約 12 公斤", "約 27 公斤（如同一個小學生的重量）"],
+        correctText: "約 27 公斤（如同一個小學生的重量）",
+        exp: "研究顯示頭部前傾每增加 15 度，頸椎負擔劇增；低頭 60 度時頸部受力高達約 27 公斤，極易造成頸椎退化與肌肉勞損。"
+      },
+      {
+        cat: "滑鼠手與腕管綜合症",
+        q: "長時間使用一般滑鼠易導致手腕發麻刺痛，哪種創科人體工學配件能有效改善？",
+        opts: ["垂直人體工學滑鼠 (Vertical Mouse)", "超扁平超小滑鼠", "完全不使用滑鼠墊"],
+        correctText: "垂直人體工學滑鼠 (Vertical Mouse)",
+        exp: "垂直滑鼠讓手部呈自然握手姿態（約 57 度），避免前臂橈尺骨交叉旋前，顯著減輕正中神經受壓迫風險。"
+      },
+      {
+        cat: "數位用眼健康法則",
+        q: "眼科專家一致推廣的「20-20-20」護眼法則，具體內容是什麼？",
+        opts: ["每使用螢幕 20 分鐘，向 20 呎（約6米）外遠眺至少 20 秒", "每天使用螢幕 20 小時，休息 20 分鐘", "將螢幕亮度和對比度均調為 20%"],
+        correctText: "每使用螢幕 20 分鐘，向 20 呎（約6米）外遠眺至少 20 秒",
+        exp: "每 20 分鐘遠眺 20 呎遠方 20 秒，能讓眼睛睫狀肌從長時間緊繃的近距離對焦中得到完全放鬆。"
+      },
+      {
+        cat: "電腦椅人體工學坐姿",
+        q: "調整電腦椅高度時，膝蓋關節與髖關節的最佳彎曲角度應為多少？",
+        opts: ["約 45 度", "約 90 至 100 度，雙腳平貼地面", "雙腿完全懸空伸直"],
+        correctText: "約 90 至 100 度，雙腳平貼地面",
+        exp: "大腿與小腿呈 90-100 度且雙腳平貼地面（或使用腳踏墊），能將身體重量平均分散，促進下肢血液循環。"
+      },
+      {
+        cat: "鍵盤打字姿勢",
+        q: "長時間在鍵盤上打字時，手腕的最佳維持狀態是什麼？",
+        opts: ["手腕與前臂保持水平直線，避免向上或向下過度彎曲", "手腕用力向下壓在堅硬桌緣", "手腕大幅度向上翹起打字"],
+        correctText: "手腕與前臂保持水平直線，避免向上或向下過度彎曲",
+        exp: "打字時手腕保持直線（Neutral Wrist），配合護腕墊支撐手掌根部，能預防手腕肌腱發炎。"
+      },
+      {
+        cat: "聽力保護與耳機使用",
+        q: "世界衛生組織 (WHO) 建議使用耳機聽音樂時應遵守的「60-60 原則」為：",
+        opts: ["音量不超過最大音量的 60%，連續聆聽不超過 60 分鐘", "每天聽 60 首歌，音量調至 60 分貝", "滿 60 歲以上才建議戴降噪耳機"],
+        correctText: "音量不超過最大音量的 60%，連續聆聽不超過 60 分鐘",
+        exp: "控制音量低於 60% 且每次聽不超過 1 小時，能保護內耳耳蝸毛細胞免於高分貝永久性損壞。"
+      },
+      {
+        cat: "智慧手錶與久坐危害",
+        q: "智慧穿戴裝置的「久坐提醒」功能，主要是為了引導使用者達到什麼健康目的？",
+        opts: ["每坐 1 小時起身活動 1-2 分鐘，促進新陳代謝與血液循環", "提醒使用者該關閉手錶充電", "提醒使用者應該去睡覺"],
+        correctText: "每坐 1 小時起身活動 1-2 分鐘，促進新陳代謝與血液循環",
+        exp: "持續久坐會降低脂肪分解酶活性並增加心血管疾病機率，定時站立伸展有助於活化肌肉。"
+      },
+      {
+        cat: "環境光線與螢幕反差",
+        q: "夜晚在昏暗房間使用電腦或手機，最健康護眼的環境光線安排是：",
+        opts: ["開啟柔和背景燈或使用不反光的螢幕掛燈，減少明暗反差", "將房間燈全關，只留螢幕發光", "拿手電筒直射螢幕鏡面"],
+        correctText: "開啟柔和背景燈或使用不反光的螢幕掛燈，減少明暗反差",
+        exp: "螢幕與環境光明暗對比過大時，瞳孔需頻繁急遽縮放，容易導致眼睛脹痛與睫狀肌痙攣。"
+      },
+      {
+        cat: "藍光與睡眠品質",
+        q: "睡前 1 小時持續盯著手機強光螢幕，最容易對人體褪黑激素（Melatonin）造成什麼影響？",
+        opts: ["抑制褪黑激素分泌，導致生理時鐘混亂與入睡困難", "促進褪黑激素超量分泌，讓人秒睡", "使人體體溫在睡眠中驟降"],
+        correctText: "抑制褪黑激素分泌，導致生理時鐘混亂與入睡困難",
+        exp: "電子螢幕發出的短波藍光會刺激視網膜，抑制松果體分泌褪黑激素，干擾人體深層睡眠節律。"
+      },
+      {
+        cat: "站立辦公與肌肉交替",
+        q: "許多科技園區導入「升降桌（Standing Desk）」，主要的人體工學優勢是：",
+        opts: ["實踐坐站交替，減緩下背部脊椎壓力並提升專注度", "強迫員工站立 8 小時不得坐下", "縮減辦公室擺放椅子的佔地面積"],
+        correctText: "實踐坐站交替，減緩下背部脊椎壓力並提升專注度",
+        exp: "每坐 45-60 分鐘站立工作 15 分鐘，能分散不同脊椎節段負擔，改善長期下背痛。"
+      },
+      {
+        cat: "專注用眼與乾眼症",
+        q: "當人們高度專注於打電動或編程時，眨眼次數通常會發生什麼變化？",
+        opts: ["大幅減少至每分鐘約 5-7 次（正常約 15-20 次），易引發乾眼", "眨眼次數會自動增加三倍以上", "眨眼頻率完全不受大腦專注度影響"],
+        correctText: "大幅減少至每分鐘約 5-7 次（正常約 15-20 次），易引發乾眼",
+        exp: "專注凝視會使眨眼頻率減半以上，使角膜表面的淚膜破裂蒸發，引發乾眼與異物感。"
+      }
+    ];
+
+    // --- 遊戲狀態 ---
+    let student = { cls: "3A", no: "01" };
+    let score = 0;
+    let balls = 0;
+    let hearts = 3;
+    let quizDeck = [...QUIZ_DB];
+    let totalQuestionsAttempted = 0;
+    let totalQuestionsCorrect = 0;
+    let totalShotsAttempted = 0;
+    let totalShotsScored = 0;
+
+    // --- 投籃物理引擎變數 ---
+    const canvas = document.getElementById("courtCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // 籃框幾何結構（右上）
+    const hoop = {
+      x: 650,
+      y: 130,
+      rimRadius: 36,
+      backboardX: 720,
+      backboardY: 60,
+      backboardH: 140
+    };
+
+    // 籃球物件
+    let ball = {
+      x: 120,
+      y: 310,
+      radius: 16,
+      vx: 0,
+      vy: 0,
+      isFlying: false,
+      hasScored: false
+    };
+
+    const GRAVITY = 0.42;
+    const AIR_RESISTANCE = 0.995;
+    let shotTimeoutTimer = null; // 5秒超時未進球計時器
+
+    // 蓄力條波動狀態
+    let power = 0;
+    let powerDir = 1;
+    let powerInterval = null;
+    let isCharging = false;
+
+    // 初始化畫布
+    function initCanvas() {
+      renderCourt();
+    }
+
+    // --- 繪製校園操場背景 (Campus Playground Environment) ---
+    function drawCampusBackground() {
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // 1. 藍天與日光漸層
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, 210);
+      skyGrad.addColorStop(0, "#38bdf8");
+      skyGrad.addColorStop(0.6, "#bae6fd");
+      skyGrad.addColorStop(1, "#e0f2fe");
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, 210);
+
+      // 遠處柔和白雲
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.beginPath();
+      ctx.arc(140, 50, 32, 0, Math.PI * 2);
+      ctx.arc(175, 42, 40, 0, Math.PI * 2);
+      ctx.arc(215, 52, 30, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(460, 60, 26, 0, Math.PI * 2);
+      ctx.arc(490, 52, 34, 0, Math.PI * 2);
+      ctx.arc(525, 62, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2. 遠景校舍教學大樓 (School Building)
+      // 主樓輪廓
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillRect(60, 65, 340, 115);
+      // 樓頂裝飾條與校園藍色飾邊
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(55, 60, 350, 8);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(60, 108, 340, 4);
+
+      // 教學樓窗戶矩陣
+      ctx.fillStyle = "#60a5fa";
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 9; c++) {
+          ctx.fillRect(75 + c * 36, 75 + r * 28, 22, 16);
+          // 窗框
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(75 + c * 36, 75 + r * 28, 22, 16);
+        }
+      }
+
+      // 側棟大樓（較矮）
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillRect(400, 95, 140, 85);
+      ctx.fillStyle = "#0369a1";
+      ctx.fillRect(398, 92, 144, 6);
+      ctx.fillStyle = "#93c5fd";
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 3; c++) {
+          ctx.fillRect(415 + c * 40, 110 + r * 30, 24, 18);
+        }
+      }
+
+      // 3. 校園綠蔭樹冠 (Trees along the playground fence)
+      const treeClusters = [
+        { x: 30, y: 180, r: 28 }, { x: 55, y: 175, r: 32 },
+        { x: 380, y: 180, r: 24 }, { x: 405, y: 172, r: 30 },
+        { x: 530, y: 180, r: 26 }, { x: 555, y: 174, r: 32 }, { x: 580, y: 180, r: 25 }
+      ];
+      ctx.fillStyle = "#15803d";
+      treeClusters.forEach(t => {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = "#22c55e";
+      treeClusters.forEach(t => {
+        ctx.beginPath();
+        ctx.arc(t.x - 4, t.y - 6, t.r * 0.75, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 4. 操場金屬網圍欄 (Chain-link Fence)
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
+      ctx.lineWidth = 1;
+      const fenceTop = 165;
+      const fenceBottom = 205;
+      // 橫柱
+      ctx.beginPath();
+      ctx.moveTo(0, fenceTop); ctx.lineTo(W, fenceTop);
+      ctx.moveTo(0, fenceBottom); ctx.lineTo(W, fenceBottom);
+      ctx.stroke();
+      // 菱形網格
+      for (let x = -50; x < W + 50; x += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x, fenceTop);
+        ctx.lineTo(x + 24, fenceBottom);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + 24, fenceTop);
+        ctx.lineTo(x, fenceBottom);
+        ctx.stroke();
+      }
+
+      // 5. 操場地面（學校經典：綠色硬地/PU籃球場 ＋ 紅色跑道邊緣）
+      // 紅色操場跑道區（遠端過渡）
+      ctx.fillStyle = "#b91c1c";
+      ctx.fillRect(0, 205, W, 30);
+      // 跑道白色分道線
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 218); ctx.lineTo(W, 218);
+      ctx.stroke();
+
+      // 綠色籃球場地 (Green Acrylic Court)
+      const courtGrad = ctx.createLinearGradient(0, 235, 0, H);
+      courtGrad.addColorStop(0, "#059669"); // 頂部較深
+      courtGrad.addColorStop(1, "#10b981"); // 前景翠綠
+      ctx.fillStyle = courtGrad;
+      ctx.fillRect(0, 235, W, H - 235);
+
+      // 籃球場白色標線 (Court Lines)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 3;
+
+      // 三分線圓弧 (3-Point Arc - perspective curve)
+      ctx.beginPath();
+      ctx.arc(680, 210, 280, Math.PI * 0.62, Math.PI * 0.95);
+      ctx.stroke();
+
+      // 禁區三秒區匙圈邊線 (Key line)
+      ctx.beginPath();
+      ctx.moveTo(560, 235);
+      ctx.lineTo(520, H);
+      ctx.stroke();
+
+      // 罰球圈半圓 (Free Throw Circle on the floor)
+      ctx.beginPath();
+      ctx.ellipse(450, 340, 50, 20, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 繪製球場與物理物件
+    function renderCourt() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. 繪製校園操場背景
+      drawCampusBackground();
+
+      // 2. 繪製室外金屬籃架與深藍色防撞安全墊
+      // 籃架金屬鋼管斜臂
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(hoop.backboardX + 16, hoop.backboardY + 60);
+      ctx.lineTo(hoop.backboardX + 45, 235);
+      ctx.stroke();
+
+      // 操場立柱直管
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(hoop.backboardX + 38, 200, 14, 180);
+
+      // 學校操場防撞保護墊 (Safety Padding)
+      ctx.fillStyle = "#1d4ed8";
+      ctx.fillRect(hoop.backboardX + 32, 260, 26, 120);
+      ctx.fillStyle = "#fbbf24"; // 防撞墊黃色警示邊條
+      ctx.fillRect(hoop.backboardX + 32, 280, 26, 6);
+      ctx.fillRect(hoop.backboardX + 32, 330, 26, 6);
+
+      // 3. 繪製透光鋼化玻璃籃板
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.strokeStyle = "#dc2626"; // 籃板外框紅色邊緣
+      ctx.lineWidth = 4;
+      ctx.fillRect(hoop.backboardX, hoop.backboardY, 10, hoop.backboardH);
+      ctx.strokeRect(hoop.backboardX, hoop.backboardY, 10, hoop.backboardH);
+
+      // 籃板內部瞄準小方框
+      ctx.strokeRect(hoop.backboardX - 1, hoop.backboardY + 45, 4, 45);
+
+      // 4. 繪製籃框 (Rim) 與籃網 (Net)
+      // 籃網
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        ctx.moveTo(hoop.x - hoop.rimRadius + i * 12, hoop.y);
+        ctx.lineTo(hoop.x - hoop.rimRadius + 12 + i * 8, hoop.y + 40);
+        ctx.stroke();
+      }
+
+      // 籃框前鐵環（鮮橙色）
+      ctx.strokeStyle = "#ea580c";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(hoop.x - hoop.rimRadius, hoop.y);
+      ctx.lineTo(hoop.x + hoop.rimRadius, hoop.y);
+      ctx.stroke();
+
+      // 5. 繪製發射台投籃起點提示標記（罰球站位點）
+      if (!ball.isFlying) {
+        ctx.fillStyle = "rgba(250, 204, 21, 0.5)";
+        ctx.beginPath();
+        ctx.ellipse(ball.x, ball.y + 18, 22, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 6. 繪製瞄準虛線（未發射時）
+      if (!ball.isFlying && balls > 0) {
+        drawAimLine();
+      }
+
+      // 7. 繪製籃球與立體陰影
+      if (!ball.isFlying) {
+        // 地面自然投影
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.beginPath();
+        ctx.ellipse(ball.x, ball.y + 16, 14, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.save();
+      ctx.translate(ball.x, ball.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "#ea580c";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#7c2d12";
+      ctx.stroke();
+
+      // 籃球黑線紋路
+      ctx.beginPath();
+      ctx.moveTo(-ball.radius, 0);
+      ctx.lineTo(ball.radius, 0);
+      ctx.moveTo(0, -ball.radius);
+      ctx.lineTo(0, ball.radius);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 繪製瞄準輔助虛線
+    function drawAimLine() {
+      const angleDeg = parseFloat(document.getElementById("angleRange").value);
+      const angleRad = (angleDeg * Math.PI) / 180;
+      const length = 75;
+
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = "rgba(2, 132, 199, 0.9)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(ball.x, ball.y);
+      ctx.lineTo(ball.x + Math.cos(angleRad) * length, ball.y - Math.sin(angleRad) * length);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 更新投籃物理
+    function updatePhysics() {
+      if (!ball.isFlying) return;
+
+      ball.vy += GRAVITY;
+      ball.vx *= AIR_RESISTANCE;
+      ball.vy *= AIR_RESISTANCE;
+
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // 碰撞檢測：籃板 (Backboard)
+      if (ball.x + ball.radius >= hoop.backboardX && ball.x - ball.radius <= hoop.backboardX + 10) {
+        if (ball.y >= hoop.backboardY && ball.y <= hoop.backboardY + hoop.backboardH) {
+          ball.vx = -ball.vx * 0.6; // 反彈
+          ball.x = hoop.backboardX - ball.radius;
+        }
+      }
+
+      // 碰撞檢測：籃框左右鐵環點
+      const rimLeft = { x: hoop.x - hoop.rimRadius, y: hoop.y };
+      const rimRight = { x: hoop.x + hoop.rimRadius, y: hoop.y };
+
+      [rimLeft, rimRight].forEach(pt => {
+        const dx = ball.x - pt.x;
+        const dy = ball.y - pt.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < ball.radius + 4) {
+          const angle = Math.atan2(dy, dx);
+          ball.vx = Math.cos(angle) * 4;
+          ball.vy = Math.sin(angle) * 4;
+        }
+      });
+
+      // 進球檢測：球心穿過籃框平面且由上往下
+      if (!ball.hasScored && ball.vy > 0) {
+        if (ball.x > hoop.x - hoop.rimRadius + 6 && ball.x < hoop.x + hoop.rimRadius - 6) {
+          if (ball.y >= hoop.y - 4 && ball.y <= hoop.y + 16) {
+            ball.hasScored = true;
+            totalShotsScored++;
+            clearTimeout(shotTimeoutTimer); // 成功進球，取消 5 秒超時
+
+            const isSwish = Math.abs(ball.x - hoop.x) < 14;
+            const pts = isSwish ? 200 : 100;
+            score += pts;
+            showShotAlert(isSwish ? "✨ 空心入網! +200" : "🎯 精彩進球! +100", "#10b981");
+            updateHUD();
+          }
+        }
+      }
+
+      // 出界或落地重置
+      if (ball.y > 380 || ball.x > 820 || ball.x < -30) {
+        clearTimeout(shotTimeoutTimer);
+        ball.isFlying = false;
+        if (!ball.hasScored) {
+          showShotAlert("❌ 未進球！再接再厲", "#ef4444");
+        }
+        resetBall();
+        return;
+      }
+
+      renderCourt();
+      if (ball.isFlying) {
+        requestAnimationFrame(updatePhysics);
+      }
+    }
+
+    function resetBall() {
+      clearTimeout(shotTimeoutTimer);
+      ball.x = 120;
+      ball.y = 310;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.isFlying = false;
+      ball.hasScored = false;
+      renderCourt();
+      updateControls();
+
+      // 檢查是否所有球已投完且生命值耗盡
+      if (balls <= 0 && hearts <= 0) {
+        endGame("特工生命值耗盡！");
+      }
+    }
+
+    function showShotAlert(msg, color) {
+      const alertBox = document.getElementById("shotAlert");
+      alertBox.textContent = msg;
+      alertBox.style.color = color;
+      alertBox.classList.add("show");
+      setTimeout(() => {
+        alertBox.classList.remove("show");
+      }, 1000);
+    }
+
+    // --- 蓄力條控制機制 ---
+    const shootBtn = document.getElementById("shootBtn");
+
+    function startCharging() {
+      if (balls <= 0 || ball.isFlying || isCharging) return;
+      isCharging = true;
+      power = 10;
+      powerDir = 1;
+
+      powerInterval = setInterval(() => {
+        power += powerDir * 3;
+        if (power >= 100) {
+          power = 100;
+          powerDir = -1;
+        } else if (power <= 5) {
+          power = 5;
+          powerDir = 1;
+        }
+        document.getElementById("powerFill").style.width = power + "%";
+      }, 25);
+    }
+
+    function releaseAndShoot() {
+      if (!isCharging) return;
+      isCharging = false;
+      clearInterval(powerInterval);
+
+      // 執行投籃
+      executeShot(power);
+      power = 0;
+      document.getElementById("powerFill").style.width = "0%";
+    }
+
+    // 觸控/滑鼠長按蓄力監聽
+    shootBtn.addEventListener("mousedown", startCharging);
+    window.addEventListener("mouseup", releaseAndShoot);
+
+    shootBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startCharging(); });
+    window.addEventListener("touchend", (e) => { releaseAndShoot(); });
+
+    // 鍵盤空白鍵蓄力支援
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && !isCharging && balls > 0 && !ball.isFlying) {
+        e.preventDefault();
+        startCharging();
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space" && isCharging) {
+        e.preventDefault();
+        releaseAndShoot();
+      }
+    });
+
+    // 執行投出籃球
+    function executeShot(chargedPower) {
+      balls--;
+      totalShotsAttempted++;
+      updateHUD();
+
+      const angleDeg = parseFloat(document.getElementById("angleRange").value);
+      const angleRad = (angleDeg * Math.PI) / 180;
+
+      // 力度對應初速度 (約 11 ~ 22.5 之間)
+      const speed = 11 + (chargedPower / 100) * 11.5;
+
+      ball.vx = Math.cos(angleRad) * speed;
+      ball.vy = -Math.sin(angleRad) * speed;
+      ball.isFlying = true;
+      ball.hasScored = false;
+
+      // 5 秒超時機制：發射 5 秒後若仍未進球，強制判定為未入球並重置
+      clearTimeout(shotTimeoutTimer);
+      shotTimeoutTimer = setTimeout(() => {
+        if (ball.isFlying && !ball.hasScored) {
+          ball.isFlying = false;
+          showShotAlert("⏱️ 超時 5 秒未入球！", "#ef4444");
+          resetBall();
+        }
+      }, 5000);
+
+      updateControls();
+      requestAnimationFrame(updatePhysics);
+    }
+
+    // 更新按鈕啟用狀態
+    function updateControls() {
+      shootBtn.disabled = (balls <= 0 || ball.isFlying);
+      if (balls > 0 && !ball.isFlying) {
+        shootBtn.textContent = "🏀 按住蓄力 / 放開投籃";
+      } else if (balls <= 0) {
+        shootBtn.textContent = "⚠️ 請先答題獲得籃球";
+      }
+    }
+
+    // 角度滑桿即時連動
+    document.getElementById("angleRange").addEventListener("input", (e) => {
+      document.getElementById("angle-val").textContent = e.target.value + "°";
+      renderCourt();
+    });
+
+    // --- 題目彈窗系統（選項隨機打亂） ---
+    let activeQ = null;
+    let shuffledOptions = [];
+
+    // 洗牌演算法 (Fisher-Yates Shuffle)
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function openQuizModal() {
+      if (quizDeck.length === 0) {
+        quizDeck = [...QUIZ_DB];
+      }
+      const randIdx = Math.floor(Math.random() * quizDeck.length);
+      activeQ = quizDeck.splice(randIdx, 1)[0];
+
+      // 將題目選項動態隨機打亂位置
+      shuffledOptions = shuffleArray(activeQ.opts);
+
+      document.getElementById("q-cat").textContent = `【${activeQ.cat}】`;
+      document.getElementById("q-text").textContent = activeQ.q;
+
+      const optsBox = document.getElementById("q-options");
+      optsBox.innerHTML = "";
+      shuffledOptions.forEach((optText, i) => {
+        const btn = document.createElement("button");
+        btn.className = "opt-btn";
+        btn.innerHTML = `<b>${String.fromCharCode(65 + i)}.</b> ${optText}`;
+        btn.onclick = () => handleAnswer(optText, btn);
+        optsBox.appendChild(btn);
+      });
+
+      document.getElementById("q-exp").classList.add("hidden");
+      document.getElementById("q-close-btn").classList.add("hidden");
+      document.getElementById("quizModal").classList.remove("hidden");
+    }
+
+    function handleAnswer(chosenText, btn) {
+      totalQuestionsAttempted++;
+      // 比對選取文字與題目的正確文字
+      const isCorrect = (chosenText === activeQ.correctText);
+
+      const allBtns = document.querySelectorAll(".opt-btn");
+      allBtns.forEach(b => b.onclick = null);
+
+      const expBox = document.getElementById("q-exp");
+      expBox.classList.remove("hidden");
+
+      if (isCorrect) {
+        btn.classList.add("correct");
+        balls++;
+        score += 50;
+        totalQuestionsCorrect++;
+        expBox.innerHTML = `<b style="color:#10b981;">🎉 回答正確！獲得 1 顆籃球 🏀 ＋ 知識分 50！</b><br>${activeQ.exp}`;
+      } else {
+        btn.classList.add("wrong");
+        hearts--;
+        // 標註出被打亂後真正的正確選項按鈕
+        allBtns.forEach(b => {
+          if (b.textContent.includes(activeQ.correctText)) {
+            b.classList.add("correct");
+          }
+        });
+        expBox.innerHTML = `<b style="color:#ef4444;">❌ 答錯了！扣減 1 顆心心 ❤️！<br>正確答案是：${activeQ.correctText}</b><br>${activeQ.exp}`;
+      }
+
+      updateHUD();
+      document.getElementById("q-close-btn").classList.remove("hidden");
+    }
+
+    function closeQuizModal() {
+      document.getElementById("quizModal").classList.add("hidden");
+      updateControls();
+      renderCourt();
+
+      if (hearts <= 0) {
+        endGame("生命值歸零，健康體力耗盡！");
+      }
+    }
+
+    // --- HUD 介面刷新 ---
+    function updateHUD() {
+      document.getElementById("student-badge").textContent = `${student.cls}(${student.no})`;
+      document.getElementById("score-val").textContent = score;
+      document.getElementById("ball-count").textContent = balls;
+      document.getElementById("heart-box").textContent = "❤️".repeat(Math.max(0, hearts));
+    }
+
+    // 啟動遊戲
+    function startGame() {
+      const cls = document.getElementById("in-class").value.trim().toUpperCase() || "3A";
+      const no = document.getElementById("in-no").value.trim() || "01";
+      student = { cls, no };
+
+      document.getElementById("loginModal").classList.add("hidden");
+      initCanvas();
+      updateHUD();
+      updateControls();
+      setTimeout(openQuizModal, 400);
+    }
+
+    // 遊戲結束
+    function endGame(reason) {
+      clearTimeout(shotTimeoutTimer);
+      document.getElementById("endModal").classList.remove("hidden");
+      const quizRate = totalQuestionsAttempted > 0 ? Math.round((totalQuestionsCorrect / totalQuestionsAttempted) * 100) : 0;
+      const shotRate = totalShotsAttempted > 0 ? Math.round((totalShotsScored / totalShotsAttempted) * 100) : 0;
+
+      document.getElementById("end-desc").innerHTML = `
+        <b>${reason}</b><br><br>
+        👤 特工：<b>${student.cls}(${student.no})</b><br>
+        🏆 最終總分：<b style="color:#facc15; font-size:18px;">${score} 分</b><br>
+        💡 創科健康題答對率：<b>${totalQuestionsCorrect} / ${totalQuestionsAttempted} (${quizRate}%)</b><br>
+        🏀 投籃命中率：<b>${totalShotsScored} / ${totalShotsAttempted} (${shotRate}%)</b>
+      `;
+    }
+
+    // 匯出 CSV 成績單
+    function exportCSV() {
+      const now = new Date().toLocaleString();
+      const quizRate = totalQuestionsAttempted > 0 ? Math.round((totalQuestionsCorrect / totalQuestionsAttempted) * 100) : 0;
+      const shotRate = totalShotsAttempted > 0 ? Math.round((totalShotsScored / totalShotsAttempted) * 100) : 0;
+
+      let csv = "\uFEFF班別,學號,總得分,答題正確數,答題總數,答對率(%),投進數,投籃總數,命中率(%),剩餘生命,提交時間\n";
+      csv += `${student.cls},${student.no},${score},${totalQuestionsCorrect},${totalQuestionsAttempted},${quizRate}%,${totalShotsScored},${totalShotsAttempted},${shotRate}%,${hearts},"${now}"\n`;
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `創科健康神射手成績_${student.cls}_${student.no}.csv`;
+      a.click();
+    }
+
+    function restartGame() {
+      clearTimeout(shotTimeoutTimer);
+      score = 0;
+      balls = 0;
+      hearts = 3;
+      quizDeck = [...QUIZ_DB];
+      totalQuestionsAttempted = 0;
+      totalQuestionsCorrect = 0;
+      totalShotsAttempted = 0;
+      totalShotsScored = 0;
+      document.getElementById("endModal").classList.add("hidden");
+      document.getElementById("loginModal").classList.remove("hidden");
+    }
+
+    // 頁面載入完成後預先渲染球場
+    window.onload = () => {
+      initCanvas();
+    };
+  </script>
+</body>
+</html>
